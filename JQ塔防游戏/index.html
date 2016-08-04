@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Simple meetting</title>
+	<meta charset='utf-8'>
+	<link rel="shortcut icon"  href="">
+	<style>
+	*{ margin:0; padding:0;}
+	#div1{ margin:20px auto; position:relative;}
+	.box1{ width:50px; height:50px; background:black; float:left;}
+	.box2{ width:50px; height:50px; background:white; float:left;}
+	.box3{ width:50px; height:50px; background:yellow; float:left; text-align:center; line-height:50px;}
+	.box4{ width:50px; height:50px; background:blue; float:left; text-align:center; line-height:50px;}
+	.gw1{ width:50px; height:50px; background:url(img/gw1.jpg) no-repeat; position:absolute;}
+	.forbit{ background:red;}
+	.active{ background:green;}
+	.pt1{ width:50px; height:50px; background:url(img/pt1.jpg) no-repeat; float:left;}
+	.bullet1{ width:5px; height:5px; background:red; position:absolute;}	
+	</style>
+	<script type="text/javascript" src='js/jquery-1.12.4.js'></script>
+	<script type="text/javascript">
+		$(function(){
+			//塔防游戏
+			var Game = {
+				arrMap : [   //地图
+					1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+					1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+					1,1,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,
+					1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,
+					1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,
+					1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,1,1,1,
+					1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,
+					1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,1,
+					1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,
+					1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1
+				],
+				arrRoute : [  //方向
+					0,0,'1B',0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,'2R',0,0,0,0,0,0,'3B',0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,'4R',0,0,0,0,0,0,'5B',0,0,0,
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,'7B',0,0,0,0,0,0,0,0,0,'6L',0,0,0,
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,'8B',0,0,0,0,0,0,0,0,0,0,0,0,0
+				],
+				route : [],      //路线的方向收集器,速度收集器,目标点收集器
+				colNum : 20,  //一行的个数
+				gridWidth : 50,  //格子的宽度
+				gwSpeed : 5,      //怪物的速度
+				gwStyle : 'gw1',  //怪物的样式
+				gwBlood : 100,    //怪物血量
+				gwMoney : 10,      //怪物值的钱数
+				$startElem : null,  //起始元素
+				$endElem  : null,    //结束元素
+				ptStyle : 'pt1',     //炮塔样式
+				ptMoney : 50,        //炮塔价格
+				$startBtn : $('#start1'),
+				$moneyNum : $('#money1'),
+				$warp : $('#div1'),
+				bulletRange : 100,       //子弹范围
+				bulletStyle : 'bullet1',    //子弹样式
+				bulletSpeed : 10,       //子弹速度
+				bulletPower : 10,       //子弹力量
+				listensTimer : null  ,  
+				starMoney :200,			//开始金钱
+				timer : null,
+				init : function(){  //初始化游戏
+					this.createMap();
+					this.events();
+					this.listens();
+				},
+				createMap : function(){  //创建地图
+					var _this = this;
+					this.$warp.css('width',this.colNum*this.gridWidth);
+					$.each(this.arrMap,function(i,value){
+						var $div = $('<div class="box'+value+'"></div>');
+						if(value==3){
+							$div.html('起始');
+							_this.$startElem = $div;
+						}
+						else if(value==4){
+							$div.html('结束');
+							_this.$endElem = $div;
+						}
+						_this.$warp.append($div);
+					});
+					this.routes();
+				},
+				routes : function(){   //路线的收集
+					var _this = this;
+					var arr = [];
+					var $divs = this.$warp.find('div');
+					$.each(this.arrRoute,function(i,value){/*得到运动目标属性*/
+						if ( value!=0 ) {
+							arr.push({"value":value,"index":i});
+						}
+					});
+					arr.sort(function(val1,val2){
+						return val1.value.slice(0,1) - val2.value.slice(0,1);
+					});
+					$.each(arr,function(i,obj){
+						var value = obj.value.substr(1,1);
+						if( i == arr.length-1 ){
+							return false;
+						}
+						switch(value){
+							case 'B':
+							_this.route.push({"dir":'top',"speed":_this.gwSpeed,"target":$divs.eq(arr[i+1].index).position().top});
+							break;
+							case 'T':
+							_this.route.push({"dir":'top',"speed":-_this.gwSpeed,"target":$divs.eq(arr[i+1].index).position().top});
+							break;
+							case 'L':
+							_this.route.push({"dir":'left',"speed":-_this.gwSpeed,"target":$divs.eq(arr[i+1].index).position().left});
+							break;
+							case 'R':
+							_this.route.push({"dir":'left',"speed":_this.gwSpeed,"target":$divs.eq(arr[i+1].index).position().left});
+							break;
+							default:
+						}
+					});
+				},
+				events : function(){  //事件操作集合 
+					var _this = this;
+					this.$startBtn.on('click',function(){
+						_this.createListGW();
+						// _this.ableBtn(true);
+					});
+					this.$warp.delegate('.box1','mouseover',function(){
+						$(this).addClass('active');
+					});
+					this.$warp.delegate('.box1','mouseout',function(){
+						$(this).removeClass('active');
+					});
+					this.$warp.delegate('.box1','click',function(){
+						_this.createPT(this);
+					});
+				},
+				// ableBtn : function(boolen){/*按钮使能*/
+				// 	this.$startBtn.prop('disabled',boolen);
+				// },
+				createListGW : function(){   //生成怪物队列
+					var _this = this;
+					var num=10;
+					if ( this.timer) {return}
+					this.timer = setInterval(function(){
+						if ( num>0 ) {
+							_this.createGW();
+							num--;
+						}
+						else{
+							clearInterval(_this.timer);
+							_this.timer = null;
+						}
+					},500);
+				},
+				createGW : function(){   //创建怪物
+					var $div = $('<div class="'+this.gwStyle+'"></div>');
+					$div.css({"top":this.$startElem.position().top,"left":this.$startElem.position().left});
+					$div.get(0).blood = this.gwBlood;
+					$div.get(0).money = this.gwMoney;
+					this.$warp.append($div);
+					this.runGW($div);
+				},
+				runGW : function($gw){    //怪物运动
+					var iNow = 0;
+					var _this = this;
+					var nowVal = 0;
+					$gw.get(0).timer = setInterval(function(){
+						
+						if( Math.abs(nowVal - _this.route[iNow].target)<=1 ){
+							if(iNow == _this.route.length-1){
+								clearInterval($gw.get(0).timer);
+								_this.stopGW('游戏结束');
+								return false;
+							}
+							else{
+								iNow++;
+							}
+						}
+						nowVal = $gw.position()[_this.route[iNow].dir] + _this.route[iNow].speed;
+						$gw.css( _this.route[iNow].dir , nowVal  );
+					},30);
+				},
+				stopGW : function(str){	//停止怪物定时器，并删除
+					var $gws = this.$warp.find('.'+this.gwStyle);
+					var $pts = this.$warp.find('.'+this.ptStyle);
+					if ( $gws.length ) {
+						$gws.each(function(){
+						clearInterval($(this).get(0).timer);
+
+					});
+					}
+					clearInterval(this.listensTimer);
+					if ( $pts.length ) {
+						$pts.html('');
+						$pts.attr('class','box1');
+					}
+					// this.ableBtn(false);
+					this.changeMoney( -parseInt(this.$moneyNum.val())+200 );
+					alert(str);
+					$gws.each(function(){
+						$(this).remove();							   
+
+					});	
+				},
+				createPT : function(elem){   //创建炮塔
+					var money = parseInt(this.$moneyNum.val());
+					if ( money>=this.ptMoney ) {
+						$(elem).attr('class',this.ptStyle);
+						this.changeMoney(-this.ptMoney);
+					}
+				},
+				changeMoney : function(money){   //钱的变化
+					var num = parseInt(this.$moneyNum.val()) + money;
+					this.$moneyNum.val( num + '￥');
+				},
+				listens : function(){    //监听是否攻击
+					var _this = this;
+					this.$warp.find('.'+this.ptStyle).each(function(){
+						_this.listenGW(this);
+					});
+					listensTimer = setTimeout(function(){
+						_this.listens();
+					},100);
+				},
+				listenGW : function(pt){//监听怪物
+					var _this = this;
+					pt.arr =[];
+					var $gws = this.$warp.find('.'+this.gwStyle);
+					$gws.each(function(){
+						var dis =  _this.disRange( $(this), $(pt) );
+						if ( dis <= _this.bulletRange ) {/*攻击范围内*/
+							pt.arr.push($(this));
+						}
+					});
+					this.listenBullet(pt);
+				},
+				listenBullet : function(pt){   //监听子弹
+					if ( pt.arr.length ) {
+						var $bullet = $('<span class="'+this.bulletStyle+'"></span>')
+						$bullet.css({left : $(pt).position().left + $(pt).width()/2 , top : $(pt).position().top + $(pt).height()/2 });
+						$(pt).append($bullet);
+						this.runBullet( pt , $bullet );
+					}
+				},
+				runBullet : function(pt,$bu){   //子弹攻击
+					var _this = this;
+					var timer = setInterval(function(){
+						if ( !pt.arr.length ) {/*停止条件，攻击范围内没有怪物*/
+							clearInterval(timer);
+							pt.innerHTML = '';
+							return false;
+						}
+						
+						var a = ( $(pt.arr[pt.arr.length-1]).offset().left + _this.gridWidth/2) - $bu.offset().left;
+						var b = ( $(pt.arr[pt.arr.length-1]).offset().top + _this.gridWidth/2) - $bu.offset().top;
+						var c = Math.sqrt( a*a + b*b );	
+						var argX = a/c;
+						var argY = b/c;
+						$bu.css({ left : $bu.position().left + argX * _this.bulletSpeed , top : $bu.position().top + argY * _this.bulletSpeed });
+						// var nowGW = pt.arr[pt.arr.length-1].get(0);
+						if( _this.pz( $bu,$(pt.arr[pt.arr.length-1].get(0)) )){/*撞上*/
+							$bu.remove();
+							clearInterval(timer);
+							pt.arr[pt.arr.length-1].get(0).blood = pt.arr[pt.arr.length-1].get(0).blood - _this.bulletPower;
+							
+							if ( pt.arr[pt.arr.length-1].get(0).blood<=0 ) {
+								clearInterval(pt.arr[pt.arr.length-1].get(0).timer);
+								_this.changeMoney(pt.arr[pt.arr.length-1].get(0).money);
+								$(pt.arr[pt.arr.length-1].get(0)).remove();	
+							}
+						}
+					},30);
+				},
+				win :function(){	//完全消灭怪物
+					var $gws = this.$warp.find('.'+this.gwStyle);
+					var $bus = this.$warp.find('.'+this.bulletStyle);
+					if( !$gws.length&& !$bus.length){/*游戏结束*/
+						this.stopGW('你赢了！');
+					}
+				},
+				disRange : function($obj1,$obj2){     //计算距离
+					var a = $obj1.offset().left - $obj2.offset().left;
+					var b = $obj1.offset().top - $obj2.offset().top;
+					return Math.sqrt(a*a+b*b);
+				},
+				pz : function($obj1,$obj2){  //碰撞检测
+					var T1 = $obj1.offset().top;
+					var B1 = $obj1.offset().top + $obj1.height();
+					var L1 = $obj1.offset().left;
+					var R1 = $obj1.offset().left + $obj1.width();
+					var T2 = $obj2.offset().top;
+					var B2 = $obj2.offset().top + $obj2.height();
+					var L2 = $obj2.offset().left;
+					var R2 = $obj2.offset().left + $obj2.width();
+					if(T1>B2 || B1<T2 || L1>R2 || R1<L2){
+						return false;
+					}
+					else{
+						return true;
+					}
+				}	
+				
+			}
+			Game.init();
+		})
+	</script>
+</head>
+<body>
+	<input type="button" id="start1" value="开始" /><input type="button" value="200￥" id="money1" />
+	<div id="div1"></div>
+</body>
+</html>
